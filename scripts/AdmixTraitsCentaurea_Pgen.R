@@ -5,16 +5,22 @@ library(sjPlot)
 
 ### Data import and merging ###
 cent <- read.csv("data/Data_Greenhouse_Flowcyt_Corrected_SRK.csv", header=T)
+cent$totFl = cent$numcap + cent$numfls
+cent$dff=1/cent$dff # convert to inverse of days to flowering (=flowering speed)
+cent$SLA = (3*pi*1.5^2)/cent$SLA # 3 discs; convert to units of mm2.mg−1
+#cent$totFl = ifelse(cent$BIOMASS>0 & is.na(cent$totFl)==T, 0, cent$totFl)
+
 gen <- read.table("data/GeneticData_180320_corrected.txt", header=T)
+
 merged <- merge(cent,gen, by.x="fam2", by.y="Ind")
 
 ### Trait modeling and plotting ###
-dat2 = merged[,c(1,4,11,12,17,18,15,13,20,21,16)]
-names(dat2) = c("Ind","Pop","Height","Stem_Width","Biomass","SLA","DFF","Num_Capitula","AnK2_K1","AnK2_K2","bench")
+dat2 = merged[,c(1,4,11,12,17,18,15,19,13,14,21,22,16)]
+names(dat2) = c("Ind","Pop","Height","Stem_Width","Biomass","SLA","1/DFF","Tot. Flower Heads","Num_Capitula","Num_Flowers","AnK2_K1","AnK2_K2","bench")
 
 # Genome size ~ trait relationships
-datGS = merged[,c(1,4,7,11,12,17,18,15,13,16)]
-names(datGS) = c("Ind","Pop","GS","Height","Stem_Width","Biomass","SLA","DFF","Num_Capitula","bench")
+datGS = merged[,c(1,4,7,11,12,17,18,15,19,13,14,16)]
+names(datGS) = c("Ind","Pop","GS","Height","Stem_Width","Biomass","SLA","1/DFF","Tot. Flower Heads","Num_Capitula","Num_Flowers","bench")
 
 # Genome size ~ trait LMMs
 GSModel.results = list()
@@ -35,12 +41,9 @@ tab_model(GSModel.results[[6]],
           GSModel.results[[3]],
           GSModel.results[[2]],
           GSModel.results[[1]],
-          dv.labels=c("Height","Stem Width","Biomass","SLA","DFF","Num. Capitula"),
+          dv.labels=c("Height","Stem Width","Biomass","SLA","1 / DFF","Tot. Flower Heads"),
           string.se = "SE",
           show.ci=F, show.se=T)
-
-# Slight (positive) association between GS and Num Capitula, 
-# but visual exploration suggests this is driven by a few outliers and is not biologically relevant.
 
 # Sample sizes of families and individuals by trait
 N_fams = data.frame()
@@ -75,24 +78,20 @@ for(i in 3:8) {
 # Trait models on BLUPs ((1|Ind) model) 
 # Can either include/exclude random Pop effect in 2nd round of LMMs
 
-LRT.results = data.frame()
+# without pop effect
 Model.results = list()
 
 for(i in 1:6) {
   trait = as.numeric(gen2[,i+1])
   K2_ancestry = gen2$K2_ancestry
   Pop = gen2$Pop # optional, depending on desired model
-  tmp.lm2 = lmer(trait ~ K2_ancestry + I(K2_ancestry^2) + (1|Pop)) # (1|Pop) optional, depending on desired model
-  tmp.lm = lmer(trait ~ K2_ancestry + (1|Pop)) # (1|Pop) optional, depending on desired model
+  tmp.lm2 = lm(trait ~ K2_ancestry + I(K2_ancestry^2))
+  tmp.lm = lm(trait ~ K2_ancestry) 
   tmp.LRT = anova(tmp.lm, tmp.lm2)
-  LRT.results = rbind(LRT.results, c(names(gen2[i+1]), tmp.LRT$Chisq[2], tmp.LRT$`Pr(>Chisq)`[2])) # last 2 values will change to F and P, respectively if using 'lm' models without Pop effect
-  names(LRT.results) = c("trait", "ChiSq", "P") # only if using 'lmer' models with Pop effect
   Model.results[[i]] = list()
   Model.results[[i]][[1]] = tmp.lm
   Model.results[[i]][[2]] = tmp.lm2
 }
-
-LRT.results
 
 # Make table of model estimates across traits
 tab_model(Model.results[[6]][[2]],
@@ -101,7 +100,38 @@ tab_model(Model.results[[6]][[2]],
           Model.results[[3]][[2]],
           Model.results[[2]][[2]],
           Model.results[[1]][[2]],
-          dv.labels=c("Height","Stem Width","Biomass","SLA","DFF","Num. Capitula"),
+          dv.labels=c("Height","Stem Width","Biomass","SLA","1 / DFF","Tot. Flower Heads"),
+          string.se = "SE",
+          show.ci=F, show.se=T)
+
+# with pop random effect in model
+LRT.resultsp = data.frame()
+Model.resultsp = list()
+
+for(i in 1:6) {
+  trait = as.numeric(gen2[,i+1])
+  K2_ancestry = gen2$K2_ancestry
+  Pop = gen2$Pop # optional, depending on desired model
+  tmp.lm2 = lmer(trait ~ K2_ancestry + I(K2_ancestry^2) + (1|Pop)) # (1|Pop) optional, depending on desired model
+  tmp.lm = lmer(trait ~ K2_ancestry + (1|Pop)) # (1|Pop) optional, depending on desired model
+  tmp.LRT = anova(tmp.lm, tmp.lm2)
+  LRT.resultsp = rbind(LRT.results, c(names(gen2[i+1]), tmp.LRT$Chisq[2], tmp.LRT$`Pr(>Chisq)`[2])) # last 2 values will change to F and P, respectively if using 'lm' models without Pop effect
+  names(LRT.resultsp) = c("trait", "ChiSq", "P") # only if using 'lmer' models with Pop effect
+  Model.resultsp[[i]] = list()
+  Model.resultsp[[i]][[1]] = tmp.lm
+  Model.resultsp[[i]][[2]] = tmp.lm2
+}
+
+LRT.resultsp
+
+# Make table of model estimates across traits
+tab_model(Model.resultsp[[6]][[2]],
+          Model.resultsp[[5]][[2]],
+          Model.resultsp[[4]][[2]],
+          Model.resultsp[[3]][[2]],
+          Model.resultsp[[2]][[2]],
+          Model.resultsp[[1]][[1]],
+          dv.labels=c("Height","Stem Width","Biomass","SLA","1 / DFF","Tot. Flower Heads"),
           string.se = "SE",
           show.ci=F, show.se=T)
 
