@@ -1,13 +1,16 @@
-# FIXED admix traits over diffK using BLUPs
-# June 20 2019
-# ZMP; updated July 2023 by SRK
+# FIXED admix traits over diffK
+# July 2023
+# code by: SRK & ZMP
 
 # load packages
 library(tidyverse)
 library(lmerTest)
 library(ggplot2)
 library(gridExtra)
-library(sjPlot)
+library(RColorBrewer)
+library(tidyr)
+library(dplyr)
+library(forcats)
 
 # load data with traits and diffK
 admix <- read.csv(file = 'data/traitsAdmix.csv', header = T, sep = ',', stringsAsFactors = T)
@@ -22,6 +25,33 @@ length(levels(admix$cross)) # 46 crosstypes
 length(levels(admix$damInd)) # 37 dams
 length(levels(admix$sireInd)) # 30 sires
 
+# Make heat map of crossing design
+
+admixplot = unique(admix[c("cross","damInd","sireInd","damK1","sireK1","diffK1")])
+admixplot2 = na.omit(admixplot)
+admixplot2$sireInd = droplevels(admixplot2)$sireInd
+
+# design <- ggplot(admix, aes(sireInd, damInd)) +                           # Create heatmap with ggplot2
+#   geom_raster(hjust=0, vjust=0,
+#             aes(fill = diffK1)) +
+#             scale_fill_gradient(low = "yellow", high = "red") +
+#             theme_grey(base_size=8)
+# 
+design <- ggplot(admixplot, aes(sireInd, damInd)) +
+  geom_tile(lwd=0.25,aes(fill = diffK1)) +
+    theme_grey(base_size=6) +
+    scale_fill_gradient(low = "yellow", high = "red") +
+    scale_x_discrete(limits=admixplot$sireInd[order(admixplot$sireK1)], guide = guide_axis(angle = 45)) +
+    scale_y_discrete(limits=admixplot$damInd[order(admixplot$damK1)]) +
+    #theme(element_blank()) +
+    coord_fixed()
+
+design 
+
+
+  
+
+ggsave(design, filename="figs/Crossing_design.pdf", device="pdf",height=5.5, width=10, units="in", dpi=200)
 ################################
 # making BLUPs
 # height
