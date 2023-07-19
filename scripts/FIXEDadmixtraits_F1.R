@@ -15,43 +15,120 @@ library(forcats)
 # load data with traits and diffK
 admix <- read.csv(file = 'data/traitsAdmix.csv', header = T, sep = ',', stringsAsFactors = T)
 
+admix = admix[-which(admix$cross=='CB_9_1_x_WV_7_2'),] # remove cross with only a single rep
+admix$Dam = as.factor(paste0(admix$damFam,"_",admix$damRep))
+admix$Sire = as.factor(paste0(admix$sireFam,"_",admix$sireRep))
 admix$diffK1sq <- admix$diffK1^2
 admix$totFl = admix$noCapitula + admix$noFlowers
 admix$DFF=1/admix$dFF # convert to inverse of days to flowering (=flowering speed)
 admix$SLA = (3*pi*1.5^2)/admix$SLAwt # 3 discs; convert to units of mm2.mg−1
-admix$reprodStat <- ifelse(is.na(admix$dFF),"reprod","veget") # define reproductive status
+#admix$reprodStat <- ifelse(is.na(admix$dFF),"reprod","veget") # define reproductive status
 
-length(levels(admix$cross)) # 46 crosstypes
-length(levels(admix$damInd)) # 37 dams
-length(levels(admix$sireInd)) # 30 sires
+length(levels(admix$cross)) # 45 crosstypes
+length(levels(admix$damFam)) # 36 dams
+length(levels(admix$sireFam)) # 30 sires
+
+cent <- read.csv("data/Data_Greenhouse_Flowcyt_Corrected_SRK.csv", header=T)
+cent = cent[,c(5,7)]
+cent$fam = as.factor(gsub("\\.","\\_",cent$fam2))
+
+P_FCM = aggregate(cent$X1C~cent$fam, FUN=mean)
+names(P_FCM) = c("Parent","P_FCM")
+
+GS <- read.csv(file = 'data/genomesizeAdmix.csv', header = T, sep = ',', stringsAsFactors = T)
+
+
+GS[!(GS$cross %in% admix$cross),]
+admix[!(admix$cross %in% GS$cross),c('cross','damFam','sireFam'),]
+
+P_F1_FCM = merge(GS,P_FCM,by.x="damFam",by.y="Parent")
+P_F1_FCM = merge(P_F1_FCM,P_FCM,by.x="sireFam",by.y="Parent")
+names(P_F1_FCM) = c("sireFam","damFam","tube","Replicate","cross","Dam","Sire","F1_FCM","damFamFCM","sireFamFCM")
+P_F1_FCM$midParenFCM = (P_F1_FCM$damFamFCM+P_F1_FCM$sireFamFCM)/2
+P_F1_FCM$diffGS = abs(P_F1_FCM$damFamFCM-P_F1_FCM$sireFamFCM)
+
+
+P_F1_FCM_avg = aggregate(P_F1_FCM$F1_FCM,by=list(P_F1_FCM$cross,P_F1_FCM$damFamFCM,P_F1_FCM$sireFamFCM,P_F1_FCM$midParenFCM), FUN=mean)
+names(P_F1_FCM_avg) = c('cross','damFamFCM','sireFamFCM','midParenFCM','F1meanFCM')
+
+FCMmod = lm(F1_FCM~damFamFCM + sireFamFCM, data=P_F1_FCM)
+summary(FCMmod)
+
+FCMmod2 = lm(F1_FCM~midParenFCM, data=P_F1_FCM)
+summary(FCMmod2)
+plot_model(FCMmod2,type="pred",show.data = T)
+
+FCMmod3 = lm(F1meanFCM~midParenFCM, data=P_F1_FCM_avg)
+summary(FCMmod3)
+plot_model(FCMmod3,type="pred",show.data = T)
+
+FCMmod4 = lm(F1meanFCM~damFamFCM, data=P_F1_FCM_avg)
+summary(FCMmod4)
+plot_model(FCMmod4,type="pred",show.data = T)
+
+FCMmod5 = lm(F1meanFCM~sireFamFCM, data=P_F1_FCM_avg)
+summary(FCMmod5)
+plot_model(FCMmod5,type="pred",show.data = T)
+
+FCM_pairs = P_F1_FCM_avg[c("damFamFCM","sireFamFCM","midParenFCM","F1meanFCM")]
+#par(mfrow=c(2,1))
+pairs(FCM_pairs)
 
 # Make heat map of crossing design
 
-admixplot = unique(admix[c("cross","damInd","sireInd","damK1","sireK1","diffK1")])
-admixplot2 = na.omit(admixplot)
-admixplot2$sireInd = droplevels(admixplot2)$sireInd
+admixplot = unique(admix[c("cross","damFam","sireFam","damK1","sireK1","diffK1")])
+admixplot = na.omit(admixplot)
+names(admixplot) = c("cross","Dam","Sire","damK1","sireK1","diff-K")
 
-# design <- ggplot(admix, aes(sireInd, damInd)) +                           # Create heatmap with ggplot2
-#   geom_raster(hjust=0, vjust=0,
-#             aes(fill = diffK1)) +
-#             scale_fill_gradient(low = "yellow", high = "red") +
-#             theme_grey(base_size=8)
-# 
-design <- ggplot(admixplot, aes(sireInd, damInd)) +
-  geom_tile(lwd=0.25,aes(fill = diffK1)) +
-    theme_grey(base_size=6) +
+design <- ggplot(admixplot, aes(Sire, Dam)) +
+  geom_tile(aes(fill = `diff-K`)) +
+    theme_grey(base_size=8) +
     scale_fill_gradient(low = "yellow", high = "red") +
-    scale_x_discrete(limits=admixplot$sireInd[order(admixplot$sireK1)], guide = guide_axis(angle = 45)) +
-    scale_y_discrete(limits=admixplot$damInd[order(admixplot$damK1)]) +
+    scale_x_discrete(limits=unique(as.factor(admixplot$Sire[order(admixplot$sireK1)])), guide = guide_axis(angle = 45)) +
+    scale_y_discrete(limits=unique(as.factor(admixplot$Dam[order(admixplot$damK1)]))) +
     #theme(element_blank()) +
     coord_fixed()
 
 design 
 
+#ggsave(design, filename="figs/Crossing_design.pdf", device="pdf",height=5, width=5, units="in", dpi=200)
 
-  
 
-ggsave(design, filename="figs/Crossing_design.pdf", device="pdf",height=5.5, width=10, units="in", dpi=200)
+GSplot = unique(P_F1_FCM[c("cross","damFam","sireFam","damFamFCM","sireFamFCM","diffGS")])
+GSplot = na.omit(GSplot)
+names(GSplot) = c("cross","Dam","Sire","damGS","sireGS","diff-GS")
+
+designGS <- ggplot(GSplot, aes(Sire, Dam)) +
+  geom_tile(aes(fill = `diff-GS`)) +
+  theme_grey(base_size=8) +
+  scale_fill_gradient(low = "yellow", high = "red") +
+  scale_x_discrete(limits=unique(as.factor(GSplot$Sire[order(GSplot$sireGS)])), guide = guide_axis(angle = 45)) +
+  scale_y_discrete(limits=unique(as.factor(GSplot$Dam[order(GSplot$damGS)]))) +
+  #theme(element_blank()) +
+  coord_fixed()
+
+designGS 
+
+#ggsave(designGS, filename="figs/GS_Crossing_design.pdf", device="pdf",height=5, width=5, units="in", dpi=200)
+
+multpanel_design <- marrangeGrob(list(designGS,design), nrow=1,ncol=2, top=NULL, padding = unit(500, "line"))
+ggsave("figs/Figure1_design.pdf", multpanel_design, width=14,height=8)
+
+mergePlot = merge(admixplot,GSplot,by="cross")
+
+designmerge <- ggplot(mergePlot, aes(Sire.x, Dam.x)) +
+  geom_tile(aes(fill = `diff-K`)) +
+  theme_grey(base_size=8) +
+  scale_fill_gradient(low = "yellow", high = "red") +
+  scale_x_discrete(limits=unique(as.factor(mergePlot$Sire.x[order(mergePlot$sireGS)])), guide = guide_axis(angle = 45)) +
+  scale_y_discrete(limits=unique(as.factor(mergePlot$Dam.x[order(mergePlot$damGS)]))) +
+  #theme(element_blank()) +
+  coord_fixed()
+
+designmerge 
+ggsave("figs/FigureS1_design.pdf", designmerge, width=10,height=8)
+
+
 ################################
 # making BLUPs
 # height
