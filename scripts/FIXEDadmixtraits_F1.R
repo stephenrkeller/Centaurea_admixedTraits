@@ -24,10 +24,14 @@ admix$DFF=1/admix$dFF # convert to inverse of days to flowering (=flowering spee
 admix$SLA = (3*pi*1.5^2)/admix$SLAwt # 3 discs; convert to units of mm2.mg−1
 #admix$reprodStat <- ifelse(is.na(admix$dFF),"reprod","veget") # define reproductive status
 
-length(levels(admix$cross)) # 45 crosstypes
-length(levels(admix$damFam)) # 36 dams
+length(levels(admix$cross)) # 44 crosstypes
+length(levels(admix$damFam)) # 35 dams
 length(levels(admix$sireFam)) # 30 sires
 
+# Create crossing design figure as a geom_tile of parents sorted by their genetic ancestry and genome size scores
+# Visualize crosses as diff-K and diff-GS
+
+#Parent genome size:
 cent <- read.csv("data/Data_Greenhouse_Flowcyt_Corrected_SRK.csv", header=T)
 cent = cent[,c(5,7)]
 cent$fam = as.factor(gsub("\\.","\\_",cent$fam2))
@@ -35,11 +39,11 @@ cent$fam = as.factor(gsub("\\.","\\_",cent$fam2))
 P_FCM = aggregate(cent$X1C~cent$fam, FUN=mean)
 names(P_FCM) = c("Parent","P_FCM")
 
+#F1 genome-size:
 GS <- read.csv(file = 'data/genomesizeAdmix.csv', header = T, sep = ',', stringsAsFactors = T)
-
-
 GS[!(GS$cross %in% admix$cross),]
-admix[!(admix$cross %in% GS$cross),c('cross','damFam','sireFam'),]
+
+#admix[!(admix$cross %in% GS$cross),c('cross','damFam','sireFam'),]
 
 P_F1_FCM = merge(GS,P_FCM,by.x="damFam",by.y="Parent")
 P_F1_FCM = merge(P_F1_FCM,P_FCM,by.x="sireFam",by.y="Parent")
@@ -47,32 +51,8 @@ names(P_F1_FCM) = c("sireFam","damFam","tube","Replicate","cross","Dam","Sire","
 P_F1_FCM$midParenFCM = (P_F1_FCM$damFamFCM+P_F1_FCM$sireFamFCM)/2
 P_F1_FCM$diffGS = abs(P_F1_FCM$damFamFCM-P_F1_FCM$sireFamFCM)
 
-
 P_F1_FCM_avg = aggregate(P_F1_FCM$F1_FCM,by=list(P_F1_FCM$cross,P_F1_FCM$damFamFCM,P_F1_FCM$sireFamFCM,P_F1_FCM$midParenFCM), FUN=mean)
 names(P_F1_FCM_avg) = c('cross','damFamFCM','sireFamFCM','midParenFCM','F1meanFCM')
-
-FCMmod = lm(F1_FCM~damFamFCM + sireFamFCM, data=P_F1_FCM)
-summary(FCMmod)
-
-FCMmod2 = lm(F1_FCM~midParenFCM, data=P_F1_FCM)
-summary(FCMmod2)
-plot_model(FCMmod2,type="pred",show.data = T)
-
-FCMmod3 = lm(F1meanFCM~midParenFCM, data=P_F1_FCM_avg)
-summary(FCMmod3)
-plot_model(FCMmod3,type="pred",show.data = T)
-
-FCMmod4 = lm(F1meanFCM~damFamFCM, data=P_F1_FCM_avg)
-summary(FCMmod4)
-plot_model(FCMmod4,type="pred",show.data = T)
-
-FCMmod5 = lm(F1meanFCM~sireFamFCM, data=P_F1_FCM_avg)
-summary(FCMmod5)
-plot_model(FCMmod5,type="pred",show.data = T)
-
-FCM_pairs = P_F1_FCM_avg[c("damFamFCM","sireFamFCM","midParenFCM","F1meanFCM")]
-#par(mfrow=c(2,1))
-pairs(FCM_pairs)
 
 # Make heat map of crossing design
 
@@ -82,12 +62,12 @@ names(admixplot) = c("cross","Dam","Sire","damK1","sireK1","diff-K")
 
 design <- ggplot(admixplot, aes(Sire, Dam)) +
   geom_tile(aes(fill = `diff-K`)) +
-    theme_grey(base_size=8) +
-    scale_fill_gradient(low = "yellow", high = "red") +
-    scale_x_discrete(limits=unique(as.factor(admixplot$Sire[order(admixplot$sireK1)])), guide = guide_axis(angle = 45)) +
-    scale_y_discrete(limits=unique(as.factor(admixplot$Dam[order(admixplot$damK1)]))) +
-    #theme(element_blank()) +
-    coord_fixed()
+  theme_grey(base_size=12) +
+  scale_fill_gradient(low = "yellow", high = "red") +
+  scale_x_discrete(limits=unique(as.factor(admixplot$Sire[order(admixplot$sireK1)])), guide = guide_axis(angle = 45)) +
+  scale_y_discrete(limits=unique(as.factor(admixplot$Dam[order(admixplot$damK1)]))) +
+  ggtitle("Genetic ancestry (K=2)") +
+  coord_fixed()
 
 design 
 
@@ -100,34 +80,44 @@ names(GSplot) = c("cross","Dam","Sire","damGS","sireGS","diff-GS")
 
 designGS <- ggplot(GSplot, aes(Sire, Dam)) +
   geom_tile(aes(fill = `diff-GS`)) +
-  theme_grey(base_size=8) +
+  theme_grey(base_size=12) +
   scale_fill_gradient(low = "yellow", high = "red") +
   scale_x_discrete(limits=unique(as.factor(GSplot$Sire[order(GSplot$sireGS)])), guide = guide_axis(angle = 45)) +
   scale_y_discrete(limits=unique(as.factor(GSplot$Dam[order(GSplot$damGS)]))) +
-  #theme(element_blank()) +
+  ggtitle("Genome size") +
   coord_fixed()
 
 designGS 
 
 #ggsave(designGS, filename="figs/GS_Crossing_design.pdf", device="pdf",height=5, width=5, units="in", dpi=200)
 
-multpanel_design <- marrangeGrob(list(designGS,design), nrow=1,ncol=2, top=NULL, padding = unit(500, "line"))
-ggsave("figs/Figure1_design.pdf", multpanel_design, width=14,height=8)
+multpanel_design <- marrangeGrob(list(designGS,design), nrow=1,ncol=2, top=NULL, padding = unit(0.5, "line"))
+ggsave("figs/Figure1.pdf", multpanel_design, width=14,height=8)
 
 mergePlot = merge(admixplot,GSplot,by="cross")
 
-designmerge <- ggplot(mergePlot, aes(Sire.x, Dam.x)) +
-  geom_tile(aes(fill = `diff-K`)) +
-  theme_grey(base_size=8) +
-  scale_fill_gradient(low = "yellow", high = "red") +
-  scale_x_discrete(limits=unique(as.factor(mergePlot$Sire.x[order(mergePlot$sireGS)])), guide = guide_axis(angle = 45)) +
-  scale_y_discrete(limits=unique(as.factor(mergePlot$Dam.x[order(mergePlot$damGS)]))) +
-  #theme(element_blank()) +
-  coord_fixed()
+cor.test(mergePlot$`diff-K`,mergePlot$`diff-GS`)
 
-designmerge 
-ggsave("figs/FigureS1_design.pdf", designmerge, width=10,height=8)
 
+# P-O regression using mid-parent values and offspring individual obs
+FCMmodMidP = lmer(F1_FCM~midParenFCM + (1|cross), data=P_F1_FCM)
+summary(FCMmodMidP)
+plot_model(FCMmodMidP,type="pred",show.data = T)
+
+# P-O regression using mid-parent values and offspring means
+FCMmod3 = lm(F1meanFCM~midParenFCM, data=P_F1_FCM_avg)
+summary(FCMmod3)
+plot_model(FCMmod3,type="pred",show.data = T)
+
+# P-O regression using dam parent values and offspring means
+FCMmod4 = lm(F1meanFCM~damFamFCM, data=P_F1_FCM_avg)
+summary(FCMmod4)
+plot_model(FCMmod4,type="pred",show.data = T)
+
+# P-O regression using sire parent values and offspring means
+FCMmod5 = lm(F1meanFCM~sireFamFCM, data=P_F1_FCM_avg)
+summary(FCMmod5)
+plot_model(FCMmod5,type="pred",show.data = T)
 
 ################################
 # making BLUPs
@@ -406,7 +396,7 @@ totFl <- ggplotRegression(lmplot8) +
 
 multpanel_diffK <- marrangeGrob(list(ht,sw,dm,sla,dFF,totFl), nrow=2,ncol=3, top=NULL, padding = unit(10, "line"))
 
-ggsave("figs/Figure2.pdf", multpanel_diffK, width=14,height=8)
+ggsave("figs/Figure3.pdf", multpanel_diffK, width=14,height=8)
 
 # ANOVA table
 F1.Model.resultsp = list()

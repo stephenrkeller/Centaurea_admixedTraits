@@ -97,9 +97,9 @@ for(i in 1:6) {
 tab_model(Model.results[[6]][[2]],
           Model.results[[5]][[2]],
           Model.results[[4]][[2]],
-          Model.results[[3]][[2]],
+          Model.results[[3]][[1]],
           Model.results[[2]][[2]],
-          Model.results[[1]][[2]],
+          Model.results[[1]][[1]],
           dv.labels=c("Height","Stem Width","Biomass","SLA","1 / DFF","Tot. Flower Heads"),
           string.se = "SE",
           show.ci=F, show.se=T)
@@ -128,7 +128,7 @@ LRT.resultsp
 tab_model(Model.resultsp[[6]][[2]],
           Model.resultsp[[5]][[2]],
           Model.resultsp[[4]][[2]],
-          Model.resultsp[[3]][[2]],
+          Model.resultsp[[3]][[1]],
           Model.resultsp[[2]][[2]],
           Model.resultsp[[1]][[1]],
           dv.labels=c("Height","Stem Width","Biomass","SLA","1 / DFF","Tot. Flower Heads"),
@@ -156,7 +156,6 @@ for(i in 1:6) {
 }
 
 traits <- marrangeGrob(trait_plot_list, nrow=1, ncol=6, top=NULL)
-#ggsave("figs/trait_plots.pdf", traits)
 
 # Make trait~admixture plots with Pop effect
 gen2p = gen[,1:3]
@@ -198,7 +197,6 @@ for(i in 1:6) {
 }
 
 traitsp <- marrangeGrob(trait_plot_listp, nrow=1, ncol=6, top=NULL)
-# ggsave("figs/trait_plots_pop.pdf", width=14,height=4, traitsp)
 
 # make histograms of trait values by ancestry class
 # without pop effects
@@ -234,11 +232,10 @@ for(j in 1:6){
 }
 
 histp <- marrangeGrob(hist_plot_listp, nrow=1, ncol=6, top=NULL)
-# ggsave("figs/hist_plots_pop.pdf", hist)
 
 # without pop effects
 multpanel <- marrangeGrob(c(traits,hist), nrow=2,ncol=1, top=NULL, padding = unit(10, "line"))
-ggsave("figs/Figure1.pdf", multpanel, width=14,height=8)
+ggsave("figs/Figure2.pdf", multpanel, width=14,height=8)
 
 # With pop effects
 multpanelp <- marrangeGrob(c(traitsp,histp), nrow=2,ncol=1, top=NULL, padding = unit(10, "line"))
