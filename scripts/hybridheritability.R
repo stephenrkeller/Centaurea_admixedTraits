@@ -5,9 +5,32 @@
 # load packages
 library(tidyverse)
 
+
 # load data
-mid <- read.csv(file = 'midBLUPs.csv', header = T, sep = ',')
+mid <- read.csv(file = 'data/midBLUPs.csv', header = T, sep = ',')
 summary(mid)
+
+
+# Genome size
+# Parent genome size:
+cent <- read.csv("data/Data_Greenhouse_Flowcyt_Corrected_SRK.csv", header=T)
+cent = cent[,c(5,7)]
+cent$fam = as.factor(gsub("\\.","\\_",cent$fam2))
+
+P_FCM = aggregate(cent$X1C~cent$fam, FUN=mean)
+names(P_FCM) = c("Parent","P_FCM")
+
+#F1 genome-size:
+GS <- read.csv(file = 'data/genomesizeAdmix.csv', header = T, sep = ',', stringsAsFactors = T)
+#GS[!(GS$cross %in% admix$cross),]
+
+P_F1_FCM = merge(GS,P_FCM,by.x="damFam",by.y="Parent")
+P_F1_FCM = merge(P_F1_FCM,P_FCM,by.x="sireFam",by.y="Parent")
+names(P_F1_FCM) = c("sireFam","damFam","tube","Replicate","cross","Dam","Sire","F1_FCM","damFamFCM","sireFamFCM")
+P_F1_FCM$midParenFCM = (P_F1_FCM$damFamFCM+P_F1_FCM$sireFamFCM)/2
+
+
+
 # diffK1: median = 0.3331, mean = 0.4199
 # make columns for midparent values
 mid$midHt <- (mid$sireHt+mid$damHt)/2
@@ -29,6 +52,38 @@ mid$midslaSq <- mid$midsla^2
 
 lowH <- filter(mid, diffK1mean < 0.3331)
 highH <- filter(mid, diffK1mean > 0.3331)
+
+# P-O regression using mid-parent values and offspring individual obs
+FCMmodMidP = lmer(F1_FCM~midParenFCM + (1|cross), data=P_F1_FCM)
+summary(FCMmodMidP)
+plot_model(FCMmodMidP,type="pred",show.data = T)
+
+FCMmodMidP2 = lm(F1_FCM~midParenFCM, data=P_F1_FCM)
+summary(FCMmodMidP2)
+plot_model(FCMmodMidP2,type="pred",show.data = T)
+
+# Calculate evolvabilites according to Houle (1992):
+Vp = (summary(FCMmodMidP2)$sigma)**2
+h2 = summary(FCMmodMidP2)$coef[2,1]
+Va = h2*Vp
+CVa = 100*sqrt(Va/mean(predict(FCMmodMidP2)))
+# Ia = Va/(mean(predict(FCMmodMidP2))**2)
+
+# # P-O regression using mid-parent values and offspring means
+# FCMmod3 = lm(F1meanFCM~midParenFCM, data=P_F1_FCM_avg)
+# summary(FCMmod3)
+# plot_model(FCMmod3,type="pred",show.data = T)
+# 
+# # P-O regression using dam parent values and offspring means
+# FCMmod4 = lm(F1meanFCM~damFamFCM, data=P_F1_FCM_avg)
+# summary(FCMmod4)
+# plot_model(FCMmod4,type="pred",show.data = T)
+# 
+# # P-O regression using sire parent values and offspring means
+# FCMmod5 = lm(F1meanFCM~sireFamFCM, data=P_F1_FCM_avg)
+# summary(FCMmod5)
+# plot_model(FCMmod5,type="pred",show.data = T)
+
 
 ###############################
 # Ht low

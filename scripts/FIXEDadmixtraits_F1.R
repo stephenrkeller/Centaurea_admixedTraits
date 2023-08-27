@@ -104,20 +104,30 @@ FCMmodMidP = lmer(F1_FCM~midParenFCM + (1|cross), data=P_F1_FCM)
 summary(FCMmodMidP)
 plot_model(FCMmodMidP,type="pred",show.data = T)
 
-# P-O regression using mid-parent values and offspring means
-FCMmod3 = lm(F1meanFCM~midParenFCM, data=P_F1_FCM_avg)
-summary(FCMmod3)
-plot_model(FCMmod3,type="pred",show.data = T)
+FCMmodMidP2 = lm(F1_FCM~midParenFCM, data=P_F1_FCM)
+summary(FCMmodMidP2)
 
-# P-O regression using dam parent values and offspring means
-FCMmod4 = lm(F1meanFCM~damFamFCM, data=P_F1_FCM_avg)
-summary(FCMmod4)
-plot_model(FCMmod4,type="pred",show.data = T)
+# Calculate evolvabilites according to Houle (1992):
+Vp = (summary(FCMmodMidP2)$sigma)**2
+h2 = summary(FCMmodMidP2)$coef[2,1]
+Va = h2*Vp
+CVa = 100*sqrt(Va/mean(predict(FCMmodMidP2)))
+# Ia = Va/(mean(predict(FCMmodMidP2))**2)
 
-# P-O regression using sire parent values and offspring means
-FCMmod5 = lm(F1meanFCM~sireFamFCM, data=P_F1_FCM_avg)
-summary(FCMmod5)
-plot_model(FCMmod5,type="pred",show.data = T)
+# # P-O regression using mid-parent values and offspring means
+# FCMmod3 = lm(F1meanFCM~midParenFCM, data=P_F1_FCM_avg)
+# summary(FCMmod3)
+# plot_model(FCMmod3,type="pred",show.data = T)
+# 
+# # P-O regression using dam parent values and offspring means
+# FCMmod4 = lm(F1meanFCM~damFamFCM, data=P_F1_FCM_avg)
+# summary(FCMmod4)
+# plot_model(FCMmod4,type="pred",show.data = T)
+# 
+# # P-O regression using sire parent values and offspring means
+# FCMmod5 = lm(F1meanFCM~sireFamFCM, data=P_F1_FCM_avg)
+# summary(FCMmod5)
+# plot_model(FCMmod5,type="pred",show.data = T)
 
 ################################
 # making BLUPs
